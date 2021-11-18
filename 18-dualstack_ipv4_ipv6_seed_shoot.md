@@ -25,9 +25,58 @@ The easiest solution is to provide both protocol stacks - IPv4/IPv6 dual stack.
 
 > TODO
 
-### Configuration
+### Customer facing Configuration
+#### IPFamilies in Shoot specification
 
-> TODO
+Shoot spec should now support IPFamilies, like the [k8s service](https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services) does. Order of ipFamilies should not matter. The field should be immutable. **As soon as `IPv4` and `IPv6` is set in ipFamilies, the cluster should be considered as dual stack cluster.** It should help us in improving validation and while being in operation precedures. This should default to `["IPv4"]`. 
+
+If the Shoot is a dual stack cluster, the dual stack feature gate on all kubernetes components **must** be enabled.
+
+Allowed values should be:
+- `["IPv4"]`
+- `["IPv4","IPv6"]` (dual stack)
+- `["IPv6","IPv4"]` (dual stack)
+
+```yaml
+apiVersion: v1beta1
+kind: Shoot
+spec:
+  kubernetes:
+    ipFamilies:
+    - IPv4
+    - IPv6
+```
+
+#### CIDRs should now support comma seperated networks
+
+Shoot networks definitions **must** have a dual stack network definitions as soon as the Shoot should be a dual stack cluster.
+
+```yaml
+apiVersion: core.gardener.cloud/v1beta1
+kind: Shoot
+spec:
+  networking:
+    pods: '100.96.0.0/11,2a05:6000:caf9::/64'
+    nodes: '10.250.0.0/16,2a05:6000:caf9:0001::/64'
+    services: '100.64.0.0/13,2a05:6000:caf9:0002::/64'
+```
+
+#### Node CIDR mask size for v4 and v6
+
+If the Shoot is not a dual stack cluster `nodeCIDRMaskSize` should be used as usual. The fields `nodeCIDRMaskSizeV4` and `nodeCIDRMaskSizeV6` should be ignored.
+
+If the Shoot is a dual stack cluster, `nodeCIDRMaskSizeV4` and `nodeCIDRMaskSizeV6` should be used and `nodeCIDRMaskSize` should be ignored. The default of the values should be the same as in the [Kube-Controller-Manager](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/).
+
+```yaml
+apiVersion: core.gardener.cloud/v1beta1
+kind: Shoot
+spec:
+  kubernetes:
+    kubeControllerManager:
+      nodeCIDRMaskSize: 
+      nodeCIDRMaskSizeV4: 
+      nodeCIDRMaskSizeV6: 
+```
 
 ### Impacted Components
 
