@@ -66,7 +66,10 @@ spec:
 
 If the Shoot is not a dual stack cluster `nodeCIDRMaskSize` should be used as usual. The fields `nodeCIDRMaskSizeV4` and `nodeCIDRMaskSizeV6` should be ignored.
 
-If the Shoot is a dual stack cluster, `nodeCIDRMaskSizeV4` and `nodeCIDRMaskSizeV6` should be used and `nodeCIDRMaskSize` should be ignored. The default of the values should be the same as in the [Kube-Controller-Manager](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/).
+If the Shoot is a dual stack cluster, `nodeCIDRMaskSizeV4` and `nodeCIDRMaskSizeV6` should be used and `nodeCIDRMaskSize` should be ignored. The default of the values should be the same as in the [Kube-Controller-Manager](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/). 
+
+The default value for `nodeCIDRMaskSize` and `nodeCIDRMaskSizeV4` should be `24`. 
+The default value for `nodeCIDRMaskSizeV6` should be `64`.
 
 ```yaml
 apiVersion: core.gardener.cloud/v1beta1
@@ -74,9 +77,9 @@ kind: Shoot
 spec:
   kubernetes:
     kubeControllerManager:
-      nodeCIDRMaskSize: 
-      nodeCIDRMaskSizeV4: 
-      nodeCIDRMaskSizeV6: 
+      nodeCIDRMaskSize: 24
+      nodeCIDRMaskSizeV4: 24
+      nodeCIDRMaskSizeV6: 64
 ```
 
 ### Impacted Components
