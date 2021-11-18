@@ -25,7 +25,8 @@ The easiest solution is to provide both protocol stacks - IPv4/IPv6 dual stack.
 
 > TODO
 
-### Customer facing Configuration
+### User facing Configuration
+
 #### IPFamilies in Shoot specification
 
 Shoot spec should now support IPFamilies, like the [k8s service](https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services) does. Order of ipFamilies should not matter. The field should be immutable. **As soon as `IPv4` and `IPv6` is set in ipFamilies, the cluster should be considered as dual stack cluster.** It should help us in improving validation and while being in operation precedures. This should default to `["IPv4"]`. 
