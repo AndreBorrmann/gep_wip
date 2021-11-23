@@ -82,6 +82,7 @@ spec:
       nodeCIDRMaskSizeV6: 64
 ```
 
+
 ### Impacted Components
 
 > TODO
@@ -113,3 +114,43 @@ Azure does only allow to use "your own IPv6" address and subnet. For external co
 **OpenStack :**
 
 >TODO
+
+#### CIDR's may require to allow to use template formats
+
+As seen in the section above it might not be possible to know the IPv6 CIDRs assigned to the Gardener VPC's while creating the `shoot` configuration as they are commisioned by the cloud provider. Therefore the specific sub-nets might not be able to be fully specified as part of this configuration. It should be allowed to use specific template format when specifying the sub net CIDRs within the shoot spec. This would allow a specific web-hook that get's called with the actual created/assigned IPv6 address ranges from the provider to complete the configuration and thus allows the creation of the sub-nets.
+
+Example:
+
+```yaml
+  networking:
+    type: calico
+    pods: 100.128.0.0/11, <PROVIDER/64>:ffff:1100::/108
+    nodes: 10.255.0.0/16, <PROVIDER/64>::/56
+    services: 100.72.0.0/13, <PROVIDER/64>:ffff:3300::/108
+```
+
+In this example the template defines to use the IPv6 address assigned by the provider and mask 56 bits of it to define the basis of the sub-net. Than add some further IPv6 sub-address range with the corresponding mask size to calculate the final IPv6 CIDR. Given a cloud provider assigned IPv6 like `2a05:d014:cfe:1f00::` the resulting configuration would be
+
+```yaml
+  networking:
+    type: calico
+    pods: 100.128.0.0/11, 2a05:d014:cfe:1f00:ffff:1100::/108
+    nodes: 10.255.0.0/16, 2a05:d014:cfe:1f00::/56
+    services: 100.72.0.0/13, 2a05:d014:cfe:1f00:ffff:3300::/108
+```
+
+This enhancement also impacts how the provider specific networks need to be configured in the shoot spec. Example:
+
+```yaml
+  provider:
+    type: aws # {aws,azure,gcp,...}
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          cidrv4: 10.255.0.0/16
+          cidrv6: <PROVIDER/64>
+```
+
+This configuration would trigger the usage of the provider specific web-hook to retrieve the assigned IPv6 address range. The template format specified here is used to validate with the occurences in the sub-net specifications. If they don't match - either the name or the mask - it is a configuration error.
