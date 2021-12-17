@@ -64,7 +64,7 @@ The IPAM flow can be seen like follows:
   
 The extension SHOULD als take one of the following actions to make the prefixes available for K8S:
 
-    - Store the actual subnet cidrs that shall be used for nodes, pods, services as part of the shoot-spec status
+  - Store the actual subnet cidrs that shall be used for nodes, pods, services as part of the shoot-spec status
   - Store the actual subnet cidrs that shall be used within the gardener networking resource available in the shoot namespace.
 
 2. Node creation
