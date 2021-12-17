@@ -39,7 +39,7 @@ The easiest solution is to provide both protocol stacks - IPv4/IPv6 dual stack.
 
 This section describes the proposed configuration and process flow for the IP address management or more concrete how the CIDR ranges for nodes, pods and services are optained, configured and used during the cluster setup.
 
-> It has been seen that the different cloud provider does have quite strict limitations in a *bring-your-own-ipv6-ranges* scenario. Unless this has been changed we will mainly deal in this GEP with the situation, that the IPv6 ranges are given by the cloud provider.
+> The current implementations of IPv6 VPCs in AWS and GCP strictly limit the way of using IPv6 to scenarios that maintain uniqueness and route-ability of IPv6 addresses. As a consequence, they enforce that IPv6 prefixes are administered by the cloud provider and assigned from their pool of addresses or a bring-your-own-IPv6 pool. In this GEP, we reflect this situation with the situation and assume IPv6 ranges are usually assigned by/through the cloud provider.
 
 In the shoot specification we will use the definition of the `network` section to provide the cidrs for `nodes`, `pods` and `services`. As those fields already exist they will be enhanced to accept a tuple of values. One value for IPv4 and one for IPv6. For the IPv6 cidr the special key word `AUTOv6` will be valid to be used to indicate that the respective CIDR will be available at runtime only and being configured during the cluster deployment/reconciliation.
 
@@ -48,34 +48,39 @@ Example:
 ```yaml
   networking:
     type: calico # {calico,cilium}
-    pods: 100.128.0.0/11, AUTOv6
-    nodes: 10.255.0.0/16, AUTOv6
-    services: 100.72.0.0/13, AUTOv6
+    pods: AUTOv6, 100.128.0.0/11, 
+    nodes: AUTOv6, 10.255.0.0/16
+    services: AUTOv6, 100.72.0.0/13
 ```
 
-The granularity of those networks depends on the cloud provider. E.g. the `node` subnet for GCP is always a `/96` and for AWS it's always a `/80`. Further more the node cidr and the pod cidr will be overlapping, where the node IP shall be taken from the very first available IP address of this range.
+As the IPv6 deployment strategy of the cloud providers tries to assigning a single prefixes per host, we have to tolerate that the pod- and node-CIDR are overlapping/identical. 
+The size of the prefix assigned per host depends on the cloud provider, but can be assumed _large enough_ to accommodate a per-node pod prefix. For example, GCP always assigns a `/96` and for AWS requires to use a `/80`.  For now, we assume the node IP shall be taken from the very first available IP address of this range and the first /100 is reserved for node purposes.
 
 The IPAM flow can be seen like follows:
 
 1. VPC creation
 
-  The Gardener-Provider-Extension (GPE) will either use an existing or create a new VPC based on the shoot specification. However, the spec will not contain any IPv6 ranges for the VPC as those will be assigned by the cloud provider. The extension might also maintain one of the following:
+  The Gardener-Provider-Extension (GPE) will either use an existing or create a new VPC. The spec SHOULD not contain any IPv6 prefixes, but the place-holder `AUTOv6` as in the example above. The prefixes actual used are then derived from the prefixes the cloud provider assigned to the VPC. 
+  
+The extension SHOULD als take one of the following actions to make the prefixes available for K8S:
 
-  -  Store the actual subnet cidrs that shall be used for nodes, pods, services as part of the shoot-spec status
+    - Store the actual subnet cidrs that shall be used for nodes, pods, services as part of the shoot-spec status
   - Store the actual subnet cidrs that shall be used within the gardener networking resource available in the shoot namespace.
 
 2. Node creation
 
-  The Gardener-Machine-Controler-Extension (GMCE) will create the VM/Node and thus retrieve the actual assigned IPv6 address as well as the corresponding IPv6 CIDR. The GMCE will maintain the K8s node resource to store the correct `POD-CIDRS` field value.
+  The Gardener-Machine-Controler-Extension (GMCE) will create the host/Node and retrieve the actual assigned IPv6 address/prefix from the cloud provider. Based on a built-in/configureable template, the GMCE will then assign a per-node pod prefix, e.g., `<nodePrefix>::f000:0/100`, and update the K8s node resource with the respective `podCIDR` spec.
 
 3. CNI Config
 
   The CNI (eg. calico) configuration uses the pod-cidrs maintained in the K8s node objekt to configure the respective networks. No adjustments are expected to be required there as those already support IPv4 as well as IPv6 in single and dual stack variations.
 
-Service CIDRs might be required to be available disjunct from nodes and pods cidrs. This would be possible in different ways based on the cloud provider.
+4. Service CIDR
 
-- GCP: A *dummy* node could be created owning a cidr range only allowed to be used for services
-- AWS: On the existing subnet assigned to the VPC a reservation could be maintained to ensure only this CIDR can be used for services
+Service CIDRs might be required to be disjunct from nodes and pods CIDRs.  We currently envision two deployment strategies:
+
+- If the service addresses need to be globally unique, e.g., as they are intended to be used in a federated service mesh, these could be generated from subnet/VPC reservation (AWS) or taken from a dummy node's prefix (GCP).
+- Otherwise, we can use a to-be-standardised well-known not globally unique prefix from the Global Unicast address range. 
 
 ### Cloud Provider / Hyperscaler Constraints
 
