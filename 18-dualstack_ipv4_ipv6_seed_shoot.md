@@ -59,4 +59,70 @@ Azure does only allow to use "your own IPv6" address and subnet. For external co
 
 **OpenStack :**
 
->TODO
+OpenStack provides the possibility to create subnet pools. If a subnet is allocated from a subnet pool, OpenStack guarantees that the subnet does not collide with any subnet derriving from the same subnet pool. 
+A Subnet and a subnet pool can either be IPv4 or IPv6. Although in this proposal we can ignore IPv4 subnet pools completely.
+
+OpenStack router can be attached to a subnet. Therefor we need a router for each subnet.
+Routers propagate the networks attached to its upstream network.
+
+To make sure the router propagates the Pod network to the upstream network, the Pod network must be part of the IPv6 Subnet attached to the Nodes. 
+
+```
+                                    ┌────────────────────────────────────┐    ┌────────────────────────────────────┐
+                                    │                                    │    │                                    │
+                                    │            Upstream v4             │    │             Upstream v6            │
+                                    │                                    │    │                                    │
+                                    └────────────────────────────────────┘    └────────────────────────────────────┘
+                                                      ▲                                           ▲
+                                                      │                                           │
+                                               ┌──────┴───────┐                           ┌───────┴──────┐
+                                               │              │                           │              │  Routing Entries:
+                                               │  Router      │                           │  Router      │  2001:DB8:0:0:4000:0:0:0/112 via 2001:DB8::a1
+                                               │              │                           │              │  2001:DB8:0:0:4000:0:1:0/112 via 2001:DB8::b4
+                                               └──────────────┘                           └──────────────┘
+                                                      ▲                                           ▲
+                                                      │                                           │
+         CIDR: 100.0.0.0/24             ┌─────────────┴────────────┐               ┌──────────────┴──────────┐ CIDR: 2001:DB8::/64
+         Allocation Pool: 100.0.0.0/24  │     Subnet v4            │               │       Subnet v6         │ Allocation Pool: 2001:DB8::/66
+                                    ┌───┴──────────────────────────┴───────────────┴─────────────────────────┴──────┐
+                                    │                                                                               │
+                                    │                                                                               │
+                                    │                               Network                                         │
+                                    │                                                                               │
+                                    │                                                                               │
+                                    └───────────────────────────────────────────────────────────────────────────────┘
+                                                     ▲                                          ▲
+                                                     │                                          │
+┌────────────────────────────────────────────────────┼──────────────────────────────────────────┼────────────────────────────────────────────────────┐
+│                                                    │                  Shoot                   │                                                    │
+│                                                    │                                          │                                                    │
+│                                               ┌────┴─────┐                              ┌─────┴────┐                                               │
+│                                               │  Port    │                              │  Port    │                                               │
+│                                             ┌─┴──────────┴─┐                          ┌─┴──────────┴─┐                                             │
+│              IPv4: 100.0.0.10               │              │                          │              │              IPv4: 100.0.0.15               │
+│              IPv6: 2001:DB8::a1/66          │   Node       │                          │   Node       │              IPv6: 2001:DB8::b4/66          │
+│ Assigned Pod CIDR: 2001:DB8::4000:0:0:0/112 │              │                          │              │ Assigned Pod CIDR: 2001:DB8::4000:0:1:0/112 │
+│                                             └──────────────┘                          └──────────────┘                                             │
+│                                                                                                                                                    │
+│                                                                                                                                                    │
+│                                                                                                                                                    │
+│                                                                                                                                                    │
+│ Shoot Properties                                                                                                                                   │
+│ Node CIDR: 100.0.0.0/24,2001:DB8::/66                                                                                                              │
+│ Pod CIDR: 10.0.0.0/16,2001:DB8::4000:0:0:0/66                                                                                                      │
+│ Svc CIDR: 10.0.0.0/16,2001:DB8::8000:0:0:0/66                                                                                                      │
+│                                                                                                                                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+Dual-Stack Solution:
+- IPv4 and IPv6 subnets **MUST** be attached to the same Network. (single home)
+- IPv6 subnet **CAN** be allocated from a subnet pool
+- The DHCPv6 of the subnet **MUST** serve apart 
+- A router **MUST** be attached to the IPv6 subnet
+- Pod subnet **MUST** be part of the IPv6 subnet, so that packages that will be routed to a upstream network can find a way back to the router
+- There **MUST** be a mechanism in place to tell the router pod cidrs per node, so packages that were routed to a upstream network can find their way back to the pod
+- Service subnet **CAN** be part of the IPv6 subnet, so that service IPs can be routable in the upstream network
+- There **CAN** be a mechanism in place to tell the router, where to find destinations of service ip addresses, so that packages sent to the service IP can reach a node serving the message. 
+
+
