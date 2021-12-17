@@ -35,7 +35,47 @@ The easiest solution is to provide both protocol stacks - IPv4/IPv6 dual stack.
 
 ### General Considerations
 
-> TODO
+#### IPAM Setup and Process Flow
+
+This section describes the proposed configuration and process flow for the IP address management or more concrete how the CIDR ranges for nodes, pods and services are optained, configured and used during the cluster setup.
+
+> It has been seen that the different cloud provider does have quite strict limitations in a *bring-your-own-ipv6-ranges* scenario. Unless this has been changed we will mainly deal in this GEP with the situation, that the IPv6 ranges are given by the cloud provider.
+
+In the shoot specification we will use the definition of the `network` section to provide the cidrs for `nodes`, `pods` and `services`. As those fields already exist they will be enhanced to accept a tuple of values. One value for IPv4 and one for IPv6. For the IPv6 cidr the special key word `AUTOv6` will be valid to be used to indicate that the respective CIDR will be available at runtime only and being configured during the cluster deployment/reconciliation.
+
+Example:
+
+```yaml
+  networking:
+    type: calico # {calico,cilium}
+    pods: 100.128.0.0/11, AUTOv6
+    nodes: 10.255.0.0/16, AUTOv6
+    services: 100.72.0.0/13, AUTOv6
+```
+
+The granularity of those networks depends on the cloud provider. E.g. the `node` subnet for GCP is always a `/96` and for AWS it's always a `/80`. Further more the node cidr and the pod cidr will be overlapping, where the node IP shall be taken from the very first available IP address of this range.
+
+The IPAM flow can be seen like follows:
+
+1. VPC creation
+
+  The Gardener-Provider-Extension (GPE) will either use an existing or create a new VPC based on the shoot specification. However, the spec will not contain any IPv6 ranges for the VPC as those will be assigned by the cloud provider. The extension might also maintain one of the following:
+
+  -  Store the actual subnet cidrs that shall be used for nodes, pods, services as part of the shoot-spec status
+  - Store the actual subnet cidrs that shall be used within the gardener networking resource available in the shoot namespace.
+
+2. Node creation
+
+  The Gardener-Machine-Controler-Extension (GMCE) will create the VM/Node and thus retrieve the actual assigned IPv6 address as well as the corresponding IPv6 CIDR. The GMCE will maintain the K8s node resource to store the correct `POD-CIDRS` field value.
+
+3. CNI Config
+
+  The CNI (eg. calico) configuration uses the pod-cidrs maintained in the K8s node objekt to configure the respective networks. No adjustments are expected to be required there as those already support IPv4 as well as IPv6 in single and dual stack variations.
+
+Service CIDRs might be required to be available disjunct from nodes and pods cidrs. This would be possible in different ways based on the cloud provider.
+
+- GCP: A *dummy* node could be created owning a cidr range only allowed to be used for services
+- AWS: On the existing subnet assigned to the VPC a reservation could be maintained to ensure only this CIDR can be used for services
 
 ### Cloud Provider / Hyperscaler Constraints
 
