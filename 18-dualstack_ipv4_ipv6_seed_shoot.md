@@ -1,8 +1,8 @@
-# Enable IPv4 & IPv6 Dualstack Support in Gardner Seed and Shoot
+# Enable IPv6 Support in Gardner Seed and Shoot Clusters
 
 ## Summary
 
-The actual Gardener implementation takes the assumption that all components that does networking are using IPv4 singlestack only. This GEP requests to enhance the Gardener networking stack to add support for IPv6 in a Dualstack or Singlestack mode.
+The actual Gardener implementation takes the assumption that all components that does networking are using IPv4 singlestack only. This GEP requests to enhance the Gardener networking stack to add support for IPv6 single-stack and IPv6+IPv4 dual-stack.
 
 ## Motivation
 
@@ -11,15 +11,17 @@ The easiest solution is to provide both protocol stacks - IPv4/IPv6 dual stack.
 
 ## Goals
 
-- Gardener should be able to create shoots with dual-stack enabled
+- Gardener should be able to create IPv6 only shoot clusters.
+- Gardener should be able to create IPv4+IPv6 dual-stack seed and shoot clusters. As k8s services in a dual-stack cluster are still single-stack by default, the preference for single-stack services should be configureable.
 - Gardener should be able to use unique addresses as IPv6 cidr, thus NAT is not needed. In contrast to an IPv4 setup where you can use the same network cidrs for all shoots
-- Gardener should be able to automatically get unique IPv6 cidrs for Shoots, this also helps in a ManagedSeedSet environment
-- Infrastructure provider AWS and OpenStack should support dual-stack behavior
+- Gardener should be able to automatically get unique IPv6 cidrs for shoots from the infrastructure provider. This also helps in a ManagedSeedSet environment.
+- Infrastructure provider AWS, GCP and OpenStack should support dual-stack behavior and limited IPv6 single-stack behavior.
 
 ## Non-Goals
 
-- IPv6 single stack support
-- Implement an IPv6 Layer for cloud providers, who do not support IPv6 in their infrastructure
+- Realising an infrastructure-independet IPv4+IPv6 ingress for IPv4 only clusters. 
+- Implement an IPv6 Layer for cloud providers, who do not support IPv6 in their infrastructure.
+- Adding an infrastructure independent IPAM to Gardener.
 
 ## Proposal
 
