@@ -27,7 +27,23 @@ The easiest solution is to provide both protocol stacks - IPv4/IPv6 dual stack.
 
 ### Configuration
 
-> TODO
+In the shoot specification we will use the definition of the `network` section to provide the cidrs for `nodes`, `pods` and `services`. As those fields already exist they will be enhanced to accept a tuple of values. One value for IPv4 and one for IPv6. We introduce special key words to request different strategies for choosing the respective CIDRs. These will be available at runtime only and being configured by Gardener/K8S during the cluster deployment/reconciliation.
+
+The following keywords are currently anticipated
+- **`autoV4`/`autoV6`** use the cloud provider's IPAM to reserve a prefix for the range (optional: of at least that size).
+- **`noV4`/`noV6`** disable IPv4/IPv6 support
+- **`+nodePrefix`** modifyer – request a prefix per node (optional: of at least that size)
+- **`fromNodePrefixV4`/`fromNodePrefixV6`**  
+
+Example:
+
+```yaml
+  networking:
+    type: calico # {calico,cilium}
+    pods: fromNodePrefixV6, 100.128.0.0/11, 
+    nodes: autoV6/64+nodePrefix/96, autoV4/16
+    services: autoV6, noV4
+```
 
 ### Impacted Components
 
@@ -41,20 +57,8 @@ This section describes the proposed configuration and process flow for the IP ad
 
 > The current implementations of IPv6 VPCs in AWS and GCP strictly limit the way of using IPv6 to scenarios that maintain uniqueness and route-ability of IPv6 addresses. As a consequence, they enforce that IPv6 prefixes are administered by the cloud provider and assigned from their pool of addresses or a bring-your-own-IPv6 pool. In this GEP, we reflect this situation with the situation and assume IPv6 ranges are usually assigned by/through the cloud provider.
 
-In the shoot specification we will use the definition of the `network` section to provide the cidrs for `nodes`, `pods` and `services`. As those fields already exist they will be enhanced to accept a tuple of values. One value for IPv4 and one for IPv6. For the IPv6 cidr the special key word `AUTOv6` will be valid to be used to indicate that the respective CIDR will be available at runtime only and being configured during the cluster deployment/reconciliation.
-
-Example:
-
-```yaml
-  networking:
-    type: calico # {calico,cilium}
-    pods: AUTOv6, 100.128.0.0/11, 
-    nodes: AUTOv6, 10.255.0.0/16
-    services: AUTOv6, 100.72.0.0/13
-```
-
 As the IPv6 deployment strategy of the cloud providers tries to assigning a single prefixes per host, we have to tolerate that the pod- and node-CIDR are overlapping/identical. 
-The size of the prefix assigned per host depends on the cloud provider, but can be assumed _large enough_ to accommodate a per-node pod prefix. For example, GCP always assigns a `/96` and for AWS requires to use a `/80`.  For now, we assume the node IP shall be taken from the very first available IP address of this range and the first /100 is reserved for node purposes.
+The size of the prefix assigned per host depends on the cloud provider, but can be assumed _large enough_ to accommodate a per-node pod prefix. For example, GCP always assigns a `/96` and for AWS requires to use a `/80`.  For now, we assume the node IP shall be taken from the very first available IP address of this range and the first /104 is reserved for node purposes.
 
 The IPAM flow can be seen like follows:
 
@@ -69,7 +73,7 @@ The extension SHOULD als take one of the following actions to make the prefixes 
 
 2. Node creation
 
-  The Gardener-Machine-Controler-Extension (GMCE) will create the host/Node and retrieve the actual assigned IPv6 address/prefix from the cloud provider. Based on a built-in/configureable template, the GMCE will then assign a per-node pod prefix, e.g., `<nodePrefix>::f000:0/100`, and update the K8s node resource with the respective `podCIDR` spec.
+  The Gardener-Machine-Controler-Extension (GMCE) or Gardener-Provider-Extension (GPE) will create the host/Node and retrieve the actual assigned IPv6 address/prefix from the cloud provider. Based on a built-in/configureable template, the GMCE/GPE will then assign a per-node pod prefix, e.g., `<nodePrefix>::f000:0/100`, and update the K8s node resource with the respective `podCIDR` spec.
 
 3. CNI Config
 
