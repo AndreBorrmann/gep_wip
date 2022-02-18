@@ -27,22 +27,30 @@ The easiest solution is to provide both protocol stacks - IPv4/IPv6 dual stack.
 
 ### Configuration
 
-In the shoot specification we will use the definition of the `network` section to provide the cidrs for `nodes`, `pods` and `services`. As those fields already exist they will be enhanced to accept a tuple of values. One value for IPv4 and one for IPv6. We introduce special key words to request different strategies for choosing the respective CIDRs. These will be available at runtime only and being configured by Gardener/K8S during the cluster deployment/reconciliation.
+We extend the exisiting fileds in the shoot specification `network` section to provide the cidrs for `nodes`, `pods` and `services`. 
+First, they are enhanced to accept a tuple of values: One value for IPv4 and one for IPv6. 
+We also introduce special key words to request different strategies for choosing the respective CIDRs. 
+These will be available at runtime only and being configured by Gardener/K8S during the cluster deployment/reconciliation.
+Please keep in mind that using these is intended for simple use-cases only – complext use-cases require direct configuratio of the network plugin
 
 The following keywords are currently anticipated
-- **`autoV4`/`autoV6`** use the cloud provider's IPAM to reserve a prefix for the range (optional: of at least that size).
-- **`noV4`/`noV6`** disable IPv4/IPv6 support
-- **`+nodePrefix`** modifyer – request a prefix per node (optional: of at least that size)
-- **`fromNodePrefixV4`/`fromNodePrefixV6`**  
+- **`privateIPv4`** assign the default privtate networks for IPv4 
+- **`globalIPv6`** use the cloud provider's IPAM to reserve a global prefix for the range (optional: of at least that size, defaults to /64).
+- **`ulaIPv6`** randomly generate a [RFC 4193](https://datatracker.ietf.org/doc/html/rfc4193) prefix for the range (optional: of at least that size between /48 and /112).
+- **`customIPv4`/`customIPv6`** do not configure from Gardener – configuration is done by the network plugin. 
+- **`noIPv4`/`noIPv6`** no-op - can be specified for documentation purpose
+- **`fromNodeCidrIPv4`/`nodeNodeCidrIPv6`** (only for pods) assign a per-node pod cidr from the per-node cidr (optional: of at least that size). Reqires `+nodeCidr` being specified on the nodes.
+- **`+nodeCidr`** modifyer – request a prefix per node (optional: of at least that size)
+  
 
 Example:
 
 ```yaml
   networking:
     type: calico # {calico,cilium}
-    pods: fromNodePrefixV6, 100.128.0.0/11, 
-    nodes: autoV6/64+nodePrefix/96, autoV4/16
-    services: autoV6, noV4
+    nodes: globalIPv6/64+nodePrefix/96, privateIPv4/20
+    pods: fromNodePrefixV6, privateIPv4/12, 
+    services: globalIPv6/64, noIPv4
 ```
 
 ### Impacted Components
